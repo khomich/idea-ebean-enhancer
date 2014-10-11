@@ -21,6 +21,8 @@ package org.ebean.idea.plugin;
 
 import com.avaje.ebean.enhance.agent.ClassBytesReader;
 import com.intellij.openapi.compiler.CompileContext;
+import com.intellij.openapi.compiler.CompilerMessageCategory;
+import com.intellij.openapi.module.Module;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.JavaPsiFacade;
 import com.intellij.psi.PsiClass;
@@ -71,11 +73,24 @@ public class IdeaClassBytesReader implements ClassBytesReader {
         }
 
         if (virtualFile == null) {
+			compileContext.addMessage(CompilerMessageCategory.ERROR, "Unable to detect source file '" + className + "' is not found in output directory", null, -1, -1);
             return null;
         }
 
+		final Module fileModule = compileContext.getModuleByFile(virtualFile);
+		final VirtualFile outputDirectory = compileContext.getModuleOutputDirectory(fileModule);
+
+		final VirtualFile compiledRequestedFile = outputDirectory.findFileByRelativePath(classNamePath + ".class");
+
+		if (null == compiledRequestedFile) {
+			compileContext.addMessage(CompilerMessageCategory.ERROR, "Class file for '" + className + "' is not found in output directory", null, -1, -1);
+			return null;
+		}
+
+		compileContext.addMessage(CompilerMessageCategory.ERROR, "Class file for '" + className + "' is not found in output directory", null, -1, -1);
+
         try {
-            return virtualFile.contentsToByteArray();
+            return compiledRequestedFile.contentsToByteArray();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
