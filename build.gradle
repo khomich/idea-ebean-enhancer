@@ -10,7 +10,13 @@ sourceCompatibility = 1.7
 version = '1.0'
 
 ext {
-    ebeanAgentVersion = "3.2.2"
+    ebeanAgentVersion = "4.1.5"
+}
+
+idea {
+    module {
+        name = "ebean-idea"
+    }
 }
 
 repositories {
