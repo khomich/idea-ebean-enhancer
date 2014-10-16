@@ -40,7 +40,7 @@ import java.util.List;
  * @author yevgenyk - Updated 28/04/2014 for IDEA 13
  */
 public class EbeanEnhancementTask {
-    private static final int DEBUG = 1;
+    private static final int DEBUG = 4;
 
     private final CompileContext compileContext;
     private final List<CompiledFile> compiledFiles;

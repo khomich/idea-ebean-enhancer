@@ -50,6 +50,10 @@ public class CompiledFileCollector implements CompilationStatusListener {
 
         final String className = resolveClassName(relativePath);
 
+		if (className.contains("$$anonfun$")) {
+			return null;	//scala lambda
+		}
+
         return new CompiledFile(file, className);
     }
 

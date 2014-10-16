@@ -29,6 +29,7 @@ import com.intellij.psi.PsiClass;
 import com.intellij.psi.PsiCompiledElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.search.GlobalSearchScope;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 
@@ -45,23 +46,27 @@ public class IdeaClassBytesReader implements ClassBytesReader {
         this.compileContext = compileContext;
     }
 
-    @Override
+    @Nullable
+	@Override
     public byte[] getClassBytes(String classNamePath, ClassLoader classLoader) {
         // create a Psi compatible classname
         final String className = classNamePath.replace('/', '.').replace('$', '.');
 
-        final PsiClass psiClass = JavaPsiFacade.getInstance(compileContext.getProject()).findClass(
+        final PsiClass[] psiClasses = JavaPsiFacade.getInstance(compileContext.getProject()).findClasses(
             className,
             GlobalSearchScope.allScope(compileContext.getProject()));
-        if (psiClass == null) {
+
+		if (psiClasses == null || psiClasses.length == 0) {
             return null;
         }
 
-        final PsiFile file = psiClass.getContainingFile();
-        if (file == null) {
-            // not file attached!?
-            return null;
-        }
+		PsiClass psiClass = null;
+        PsiFile file = null;
+		for (PsiClass cls : psiClasses) {
+			psiClass = cls;
+			file = cls.getContainingFile();
+			if (file.getName().endsWith(".class")) break;
+		}
 
         // Not quite sure if this is required...
         final VirtualFile virtualFile;
@@ -72,25 +77,32 @@ public class IdeaClassBytesReader implements ClassBytesReader {
             virtualFile = file.getVirtualFile();
         }
 
-        if (virtualFile == null) {
+		if (virtualFile == null) {
 			compileContext.addMessage(CompilerMessageCategory.ERROR, "Unable to detect source file '" + className + "' is not found in output directory", null, -1, -1);
-            return null;
-        }
-
-		final Module fileModule = compileContext.getModuleByFile(virtualFile);
-		final VirtualFile outputDirectory = compileContext.getModuleOutputDirectory(fileModule);
-
-		final VirtualFile compiledRequestedFile = outputDirectory.findFileByRelativePath(classNamePath + ".class");
-
-		if (null == compiledRequestedFile) {
-			compileContext.addMessage(CompilerMessageCategory.ERROR, "Class file for '" + className + "' is not found in output directory", null, -1, -1);
 			return null;
 		}
 
-        try {
-            return compiledRequestedFile.contentsToByteArray();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+		try {
+			if (virtualFile.getName().endsWith(".class")) { 	//short circuit if refers to the compiled class
+				return virtualFile.contentsToByteArray();
+			} else {
+				final Module fileModule = compileContext.getModuleByFile(virtualFile);
+				if (fileModule != null) {
+					final VirtualFile outputDirectory = compileContext.getModuleOutputDirectory(fileModule);
+					final VirtualFile compiledRequestedFile = outputDirectory.findFileByRelativePath(classNamePath + ".class");
+					if (compiledRequestedFile != null) {
+						return compiledRequestedFile.contentsToByteArray();
+					} else {
+						compileContext.addMessage(CompilerMessageCategory.ERROR, "Class file for '" + className + "' is not found in output directory", null, -1, -1);
+					}
+				} else {
+					compileContext.addMessage(CompilerMessageCategory.WARNING, "Class file for '" + className + "' can not be found in classpath", null, -1, -1);
+				}
+			}
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
+
+		return null;
     }
 }
